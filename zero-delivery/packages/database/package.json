@@ -1,0 +1,14 @@
+{
+  "name": "@zero-delivery/database",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "ioredis": "^5.4.2",
+    "mongodb": "^6.12.0",
+    "pg": "^8.13.1",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10"
+  }
+}

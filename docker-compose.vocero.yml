@@ -1,0 +1,53 @@
+# =============================================================================
+# Vocero CRM — Stack Docker Local para integración con Zero Delivery
+# Puertos: 3000 (app) y 5432 (postgres)
+# =============================================================================
+services:
+  vocero-db:
+    image: postgres:16-alpine
+    container_name: vocero-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vocero
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - vocero_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vocero"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vocero-app:
+    image: ghcr.io/kevinrivm/vocero-crm:2.1.0
+    container_name: vocero-app
+    restart: unless-stopped
+    depends_on:
+      vocero-db:
+        condition: service_healthy
+    environment:
+      APP_BASE_URL: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@vocero-db:5432/vocero
+      BETTER_AUTH_SECRET: 63e393acb21e0cc8dbec4c172ff4bd76cf90200c204816f8978abdc0fd16159d
+      ENCRYPTION_KEY: XqTNU14XETr0s71qnkqZMXg1NEQAZmvv8vqqPSnqQ98=
+      META_WEBHOOK_VERIFY_TOKEN: vocero_verify_token_dev_2026
+      BOT_API_KEY: zero-delivery-vocero-shared-bot-key-dev
+      BRAIN_HEALTH_URL: http://host.docker.internal:3001/api/webhooks/vocero/health
+      BRAIN_DISPATCH_URL: http://host.docker.internal:3001/api/webhooks/vocero
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+    volumes:
+      - vocero_data:/data
+
+volumes:
+  vocero_pgdata:
+  vocero_data:
