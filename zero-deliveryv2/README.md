@@ -32,7 +32,8 @@ Toda la planificación arquitectónica generada con `software-engineer-skill` se
 ```bash
 pnpm install
 docker compose up -d postgres
-cp .env.example .env
+cp .env.example .env        # PowerShell: Copy-Item .env.example .env
+pnpm seed                   # sin esto el login responde 401: la base queda vacía
 pnpm typecheck && pnpm lint && pnpm test
 pnpm dev
 ```
