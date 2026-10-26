@@ -28,15 +28,20 @@ services:
     volumes:
       - monorepo_mongodb_data:/data/db
     healthcheck:
+      # Forma exec (CMD): no hay shell que expanda variables, así que aquí se usa
+      # interpolación de Compose (un solo $). Con `$$` el contenedor recibía el
+      # literal "${MONGO_INITDB_ROOT_USERNAME}" y el healthcheck fallaba siempre.
       test:
         [
           "CMD",
           "mongosh",
           "--quiet",
           "--username",
-          "$${MONGO_INITDB_ROOT_USERNAME}",
+          "${MONGO_ROOT_USERNAME:-zero_delivery}",
           "--password",
-          "$${MONGO_INITDB_ROOT_PASSWORD}",
+          "${MONGO_ROOT_PASSWORD:-zero_delivery}",
+          "--authenticationDatabase",
+          "admin",
           "--eval",
           "db.adminCommand('ping').ok",
         ]

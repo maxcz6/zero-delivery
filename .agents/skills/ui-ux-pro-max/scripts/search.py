@@ -29,6 +29,8 @@ import argparse
 import json as json_module
 import sys
 import io
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core import CSV_CONFIG, AVAILABLE_STACKS, MAX_RESULTS, UNTRUNCATED_COLS, search, search_stack
 from design_system import generate_design_system
 

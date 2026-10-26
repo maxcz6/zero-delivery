@@ -2,7 +2,7 @@
   "name": "zero-delivery",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@11.5.3",
   "engines": {
     "node": ">=20"
   },
@@ -10,16 +10,18 @@
     "dev": "pnpm --parallel --filter @zero-delivery/web --filter @zero-delivery/api dev",
     "build": "pnpm --recursive --if-present build",
     "lint": "pnpm --recursive --if-present lint",
-    "typecheck": "pnpm --recursive --if-present typecheck"
+    "typecheck": "pnpm --recursive --if-present typecheck",
+    "test:permissions": "node scripts/verify-permissions.mjs",
+    "verify:db": "pwsh -NoProfile -File ./scripts/init-db.ps1 -ValidateOnly",
+    "verify:entities": "pnpm --filter @zero-delivery/database build && node scripts/verify-entities.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.10.5",
     "eslint": "^9.17.0",
     "typescript": "^5.7.2"
   },
-  "pnpm": {
-    "overrides": {
-      "webpack": "^5.112.0"
-    }
+  "overrides": {
+    "webpack": "^5.112.0"
   }
 }
