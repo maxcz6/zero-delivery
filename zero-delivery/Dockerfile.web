@@ -4,6 +4,7 @@ RUN corepack enable && corepack prepare pnpm@11.5.3 --activate
 
 FROM base AS builder
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/config/package.json ./packages/config/

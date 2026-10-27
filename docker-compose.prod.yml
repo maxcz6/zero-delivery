@@ -1,0 +1,257 @@
+# =============================================================================
+# ZERO DELIVERY + VOCERO CRM — STACK UNIFICADO DE PRODUCCIÓN PARA VPS
+# =============================================================================
+# Uso en VPS:
+#   cp .env.production.example .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Proxy Inverso HTTPS Automático (Caddy)
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: zero-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DELIVERY_DOMAIN: ${DELIVERY_DOMAIN:-:8080}
+      VOCERO_DOMAIN: ${VOCERO_DOMAIN:-:8081}
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - vocero-app
+    networks:
+      - zero_prod_net
+
+  # ---------------------------------------------------------------------------
+  # 2. Infraestructura de Datos Zero Delivery (Solo accesible en red interna / 127.0.0.1)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16.10-alpine
+    container_name: zero-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-zero_delivery}
+      TZ: America/Lima
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - zero_pgdata:/var/lib/postgresql/data
+      - ./zero-delivery/0001_esquema_zero_delivery_es.sql:/docker-entrypoint-initdb.d/0001_esquema_zero_delivery_es.sql:ro
+      - ./zero-delivery/scripts/seed.sql:/docker-entrypoint-initdb.d/0002_seed_inicial.sql:ro
+      - ./zero-delivery/scripts/seed-recomendaciones.sql:/docker-entrypoint-initdb.d/0003_seed_recomendaciones.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - zero_prod_net
+
+  redis:
+    image: redis:7.4.2-alpine
+    container_name: zero-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
+    volumes:
+      - zero_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - zero_prod_net
+
+  mongodb:
+    image: mongo:7.0.16
+    container_name: zero-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-zero_delivery}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-zero_delivery}
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27018}:27017"
+    volumes:
+      - zero_mongodb_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--username",
+          "${MONGO_ROOT_USERNAME:-zero_delivery}",
+          "--password",
+          "${MONGO_ROOT_PASSWORD:-zero_delivery}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping').ok",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - zero_prod_net
+
+  rabbitmq:
+    image: rabbitmq:4.1.4-management-alpine
+    container_name: zero-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-zero_delivery}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-zero_delivery}
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5673}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15673}:15672"
+    volumes:
+      - zero_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - zero_prod_net
+
+  # ---------------------------------------------------------------------------
+  # 3. Backend API y Frontend Web de Zero Delivery
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./zero-delivery
+      dockerfile: Dockerfile.api
+    container_name: zero-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-zero_delivery}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      VOCERO_BASE_URL: ${VOCERO_BASE_URL:-http://vocero-app:3000}
+      VOCERO_BOT_API_KEY: ${VOCERO_BOT_API_KEY:-zero-delivery-vocero-shared-bot-key-dev}
+      BOT_API_KEY: ${VOCERO_BOT_API_KEY:-zero-delivery-vocero-shared-bot-key-dev}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3001}
+      VOCERO_PUBLIC_URL: ${VOCERO_PUBLIC_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - zero_prod_net
+
+  web:
+    build:
+      context: ./zero-delivery
+      dockerfile: Dockerfile.web
+      args:
+        API_INTERNAL_URL: http://api:4000
+    container_name: zero-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - zero_prod_net
+
+  # ---------------------------------------------------------------------------
+  # 4. Vocero CRM + Base de Datos (Integración Bidireccional con Zero Delivery)
+  # ---------------------------------------------------------------------------
+  vocero-db:
+    image: postgres:16-alpine
+    container_name: vocero-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${VOCERO_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${VOCERO_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${VOCERO_DB_NAME:-vocero}
+      TZ: America/Lima
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - vocero_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - zero_prod_net
+
+  vocero-app:
+    image: ghcr.io/kevinrivm/vocero-crm:2.1.0
+    container_name: vocero-app
+    restart: unless-stopped
+    depends_on:
+      vocero-db:
+        condition: service_healthy
+    environment:
+      APP_BASE_URL: ${VOCERO_PUBLIC_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${VOCERO_DB_USER:-postgres}:${VOCERO_DB_PASSWORD:-postgres}@vocero-db:5432/${VOCERO_DB_NAME:-vocero}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-63e393acb21e0cc8dbec4c172ff4bd76cf90200c204816f8978abdc0fd16159d}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-XqTNU14XETr0s71qnkqZMXg1NEQAZmvv8vqqPSnqQ98=}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-vocero_verify_token_prod_2026}
+      BOT_API_KEY: ${VOCERO_BOT_API_KEY:-zero-delivery-vocero-shared-bot-key-dev}
+      BRAIN_HEALTH_URL: http://api:4000/api/v1/webhooks/vocero/health
+      BRAIN_DISPATCH_URL: http://api:4000/api/v1/webhooks/vocero
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${VOCERO_PORT:-3000}:3000"
+    volumes:
+      - vocero_data:/data
+    networks:
+      - zero_prod_net
+
+networks:
+  zero_prod_net:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  zero_pgdata:
+  zero_mongodb_data:
+  zero_redis_data:
+  zero_rabbitmq_data:
+  vocero_pgdata:
+  vocero_data:

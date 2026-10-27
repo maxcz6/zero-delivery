@@ -41,10 +41,12 @@ export class AuthController {
       userAgent
     );
 
+    const isSecureCookie = process.env["COOKIE_SECURE"] === "true";
+
     // Establecer cookie HttpOnly zd_session
     res.cookie("zd_session", result.rawToken, {
       httpOnly: true,
-      secure: process.env["COOKIE_SECURE"] === "true",
+      secure: isSecureCookie,
       sameSite: "lax",
       path: "/",
       expires: result.expiraEn,
@@ -86,9 +88,11 @@ export class AuthController {
       await this.authService.logout(token);
     }
 
+    const isSecureCookie = process.env["COOKIE_SECURE"] === "true";
+
     res.clearCookie("zd_session", {
       httpOnly: true,
-      secure: process.env["NODE_ENV"] === "production",
+      secure: isSecureCookie,
       sameSite: "lax",
       path: "/",
     });

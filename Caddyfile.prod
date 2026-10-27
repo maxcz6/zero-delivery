@@ -1,0 +1,21 @@
+# =============================================================================
+# Caddyfile de Producción — HTTPS Automático para Zero Delivery y Vocero CRM
+# =============================================================================
+# Si configuras tus dominios en .env (ej. DELIVERY_DOMAIN=delivery.tudominio.com
+# y VOCERO_DOMAIN=crm.tudominio.com), Caddy obtiene y renueva los certificados
+# Let's Encrypt automáticamente.
+# =============================================================================
+
+{$DELIVERY_DOMAIN::8080} {
+	reverse_proxy web:3001 {
+		flush_interval -1
+	}
+	encode gzip
+}
+
+{$VOCERO_DOMAIN::8081} {
+	reverse_proxy vocero-app:3000 {
+		flush_interval -1
+	}
+	encode gzip
+}

@@ -12,6 +12,8 @@ services:
     volumes:
       - monorepo_pgdata:/var/lib/postgresql/data
       - ./0001_esquema_zero_delivery_es.sql:/docker-entrypoint-initdb.d/0001_esquema_zero_delivery_es.sql:ro
+      - ./scripts/seed.sql:/docker-entrypoint-initdb.d/0002_seed_inicial.sql:ro
+      - ./scripts/seed-recomendaciones.sql:/docker-entrypoint-initdb.d/0003_seed_recomendaciones.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -104,6 +106,7 @@ services:
       VOCERO_BOT_API_KEY: ${VOCERO_BOT_API_KEY:-zero-delivery-vocero-shared-bot-key-dev}
       BOT_API_KEY: ${BOT_API_KEY:-zero-delivery-vocero-shared-bot-key-dev}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3001}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy

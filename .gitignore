@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.production
+!.env.production.example
+desktop.ini
+**/desktop.ini
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+*.log
