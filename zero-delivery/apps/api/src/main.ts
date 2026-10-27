@@ -5,7 +5,7 @@ import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix("api/v1");
 
@@ -14,7 +14,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transform: true,
     })
   );
@@ -30,7 +30,18 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Idempotency-Key",
+      "X-Requested-With",
+      "X-API-Key",
+      "X-Vocero-Signature",
+      "X-Vocero-Dispatch-Id",
+      "X-Vocero-Organization",
+      "X-Vocero-Event",
+      "X-Signature",
+    ],
   });
 
   const port = process.env["PORT"] ? parseInt(process.env["PORT"], 10) : 4000;

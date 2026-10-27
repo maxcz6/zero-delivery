@@ -7,6 +7,11 @@ import {
   ProductoEntity,
   GrupoModificadoresEntity,
   OpcionModificadorEntity,
+  ArchivoEntity,
+  UsuarioEntity,
+  AccesoUsuarioSucursalEntity,
+  ConfiguracionEntity,
+  InquilinoEntity,
 } from "@zero-delivery/database";
 import { CatalogService } from "./catalog.service";
 import { CatalogController } from "./catalog.controller";
@@ -21,6 +26,11 @@ import { IdentityModule } from "../identity/identity.module";
       ProductoEntity,
       GrupoModificadoresEntity,
       OpcionModificadorEntity,
+      ArchivoEntity,
+      UsuarioEntity,
+      AccesoUsuarioSucursalEntity,
+      ConfiguracionEntity,
+      InquilinoEntity,
     ]),
     IdentityModule,
   ],

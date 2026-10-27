@@ -18,9 +18,9 @@ const PAYMENT_BADGE: Record<
   Pedido["metodo_pago"],
   { label: string; className: string }
 > = {
-  YAPE: { label: "Yape", className: "bg-[#7C3AED] text-white" },
-  EFECTIVO: { label: "Efectivo", className: "bg-[#059669] text-white" },
-  TRANSFERENCIA_BANCARIA: { label: "Transferencia", className: "bg-[#2563EB] text-white" },
+  YAPE: { label: "Yape", className: "bg-yape text-white" },
+  EFECTIVO: { label: "Efectivo", className: "bg-success text-white" },
+  TRANSFERENCIA_BANCARIA: { label: "Transferencia", className: "bg-primary text-white" },
 };
 
 export interface OrderCardActions {
@@ -74,7 +74,7 @@ export function OrderCard({
         <span
           className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
             isLate
-              ? "bg-[#EA580C]/15 text-[#C2410C]"
+              ? "bg-accent-soft text-accent"
               : "bg-muted text-muted-foreground"
           }`}
           title={isLate ? "Pedido fuera de tiempo objetivo" : "Tiempo transcurrido"}
@@ -124,7 +124,7 @@ export function OrderCard({
             <button
               type="button"
               onClick={() => actions.onValidateYape?.(pedido)}
-              className="min-h-[32px] cursor-pointer rounded-lg bg-[#7C3AED] px-2.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="min-h-[32px] cursor-pointer rounded-lg bg-yape px-2.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
             >
               Validar pago
             </button>

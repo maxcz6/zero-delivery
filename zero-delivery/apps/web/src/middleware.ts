@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const API_INTERNAL =
-  process.env["API_INTERNAL_URL"] ?? "http://localhost:4000/api/v1";
+const rawTarget = process.env["API_INTERNAL_URL"] ?? "http://localhost:4000";
+const API_INTERNAL = rawTarget.endsWith("/api/v1")
+  ? rawTarget
+  : `${rawTarget.replace(/\/+$/, "")}/api/v1`;
 
 const ROLE_HOME: Record<string, string> = {
   ADMIN: "/admin",
@@ -14,9 +16,12 @@ const ROLE_HOME: Record<string, string> = {
 const ROUTE_ROLES: Record<string, string[]> = {
   "/admin": ["ADMIN"],
   "/coordinator": ["ADMIN", "COORDINATOR"],
+  "/bot": ["ADMIN", "COORDINATOR", "SUPPORT_AGENT"],
   "/kitchen": ["ADMIN", "COORDINATOR", "BRANCH_MANAGER"],
   "/orders": ["ADMIN", "COORDINATOR", "SUPPORT_AGENT"],
   "/rider": ["RIDER"],
+  "/metrics": ["ADMIN", "COORDINATOR"],
+  "/profile": ["ADMIN", "COORDINATOR", "BRANCH_MANAGER", "SUPPORT_AGENT", "RIDER"],
 };
 
 function loginRedirect(req: NextRequest): NextResponse {
@@ -40,10 +45,19 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
+  // Rutas públicas sin autenticación requerida para clientes
+  if (
+    pathname === "/m" ||
+    pathname.startsWith("/m/") ||
+    pathname.startsWith("/p/") ||
+    pathname === "/login"
+  ) {
+    return NextResponse.next();
+  }
+
   const hasSession = req.cookies.has("zd_session");
 
   if (!hasSession) {
-    if (pathname === "/login") return NextResponse.next();
     return loginRedirect(req);
   }
 

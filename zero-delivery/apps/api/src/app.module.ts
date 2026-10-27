@@ -11,6 +11,8 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { LogisticsModule } from "./modules/logistics/logistics.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { AuditModule } from "./modules/audit/audit.module";
+import { VoceroIntegrationModule } from "./modules/integrations/vocero/vocero-integration.module";
+import { ReportingModule } from "./modules/reporting/reporting.module";
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AuditModule } from "./modules/audit/audit.module";
     LogisticsModule,
     SettingsModule,
     AuditModule,
+    VoceroIntegrationModule,
+    ReportingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

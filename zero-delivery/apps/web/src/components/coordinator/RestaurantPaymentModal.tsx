@@ -55,8 +55,8 @@ export function RestaurantPaymentModal({
         </div>
       ) : !pago ? (
         <p className="text-sm text-muted-foreground">
-          Este pedido aún no tiene liquidación generada hacia el restaurante. Se crea al
-          completar el flujo operativo.
+          No se encontró la liquidación de este pedido. Verifica que el pedido exista y
+          esté aceptado.
         </p>
       ) : pago.estado === "CONFIRMADO" ? (
         <div className="space-y-2 text-sm">

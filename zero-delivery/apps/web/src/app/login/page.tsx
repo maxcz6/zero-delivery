@@ -84,6 +84,7 @@ function LoginForm() {
 
           {error ? (
             <div
+              id="login-error"
               role="alert"
               className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
             >
@@ -101,7 +102,9 @@ function LoginForm() {
               name="inquilino_slug"
               type="text"
               autoComplete="organization"
-              className="input"
+              className={error ? "input input-error" : "input"}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
               value={inquilino}
               onChange={(e) => setInquilino(e.target.value)}
               required
@@ -117,7 +120,9 @@ function LoginForm() {
               name="nombre_usuario"
               type="text"
               autoComplete="username"
-              className="input"
+              className={error ? "input input-error" : "input"}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               required
@@ -134,7 +139,9 @@ function LoginForm() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                className="input pr-12"
+                className={error ? "input input-error pr-12" : "input pr-12"}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "login-error" : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

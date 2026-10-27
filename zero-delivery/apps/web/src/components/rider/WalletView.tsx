@@ -31,9 +31,9 @@ function MovimientoIcon({ tipo }: { tipo: TipoMovimiento }) {
     case "RETIRO_GARANTIA":
       return <SlidersHorizontal className="h-5 w-5 text-muted-foreground" aria-hidden />;
     case "EFECTIVO_COBRADO":
-      return <Banknote className="h-5 w-5 text-[#EA580C]" aria-hidden />;
+      return <Banknote className="h-5 w-5 text-accent" aria-hidden />;
     case "EFECTIVO_LIQUIDADO":
-      return <CalendarCheck className="h-5 w-5 text-[#059669]" aria-hidden />;
+      return <CalendarCheck className="h-5 w-5 text-success" aria-hidden />;
     case "AJUSTE":
       return <SlidersHorizontal className="h-5 w-5 text-muted-foreground" aria-hidden />;
   }
@@ -128,14 +128,14 @@ export function WalletView() {
       <section className="grid grid-cols-2 gap-3">
         <div className="card p-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <ArrowDownCircle className="h-4 w-4 text-[#EA580C]" aria-hidden />
+            <ArrowDownCircle className="h-4 w-4 text-accent" aria-hidden />
             Cobrado hoy
           </p>
           <p className="mt-1 text-lg font-bold text-foreground">{money(Math.abs(cobradoHoy))}</p>
         </div>
         <div className="card p-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <ArrowUpCircle className="h-4 w-4 text-[#059669]" aria-hidden />
+            <ArrowUpCircle className="h-4 w-4 text-success" aria-hidden />
             Liquidado hoy
           </p>
           <p className="mt-1 text-lg font-bold text-foreground">{money(liquidadoHoy)}</p>
@@ -173,7 +173,7 @@ export function WalletView() {
                   </div>
                   <p
                     className={`shrink-0 text-sm font-bold ${
-                      monto < 0 ? "text-destructive" : "text-[#059669]"
+                      monto < 0 ? "text-destructive" : "text-success"
                     }`}
                   >
                     {monto < 0 ? "−" : "+"}

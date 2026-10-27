@@ -18,9 +18,9 @@ import type { ApiResponse, Repartidor, WalletInfo } from "@/lib/types";
 import { Badge, EmptyState, ErrorNote, Modal, PageLoader, Spinner } from "@/components/ui";
 
 const ESTADO_REPARTIDOR: Record<Repartidor["estado"], string> = {
-  DISPONIBLE: "bg-[#059669] text-white",
-  OCUPADO: "bg-[#D97706] text-white",
-  EN_CAMINO: "bg-[#2563EB] text-white",
+  DISPONIBLE: "bg-success text-white",
+  OCUPADO: "bg-warning text-white",
+  EN_CAMINO: "bg-primary text-white",
   DESCONECTADO: "bg-muted text-muted-foreground",
 };
 

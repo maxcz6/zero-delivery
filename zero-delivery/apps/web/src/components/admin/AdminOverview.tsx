@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bike,
+  Bot,
   ChefHat,
   ClipboardList,
   CreditCard,
@@ -92,13 +93,22 @@ export function AdminOverview() {
             Estado global de la operación en tiempo real.
           </p>
         </div>
-        <Link
-          href="/coordinator"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-bold text-on-primary transition-opacity hover:opacity-90"
-        >
-          Abrir despacho
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/bot"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
+          >
+            <Bot className="h-4 w-4" aria-hidden />
+            Bot & Vocero CRM
+          </Link>
+          <Link
+            href="/coordinator"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-bold text-on-primary transition-opacity hover:opacity-90"
+          >
+            Abrir despacho
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -128,18 +138,24 @@ export function AdminOverview() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <QuickAction
-          href="/admin/usuarios"
-          icon={<Users className="h-5 w-5" aria-hidden />}
-          title="Usuarios"
-          detail={`${activos} activos de ${usuarios.length}`}
+          href="/bot"
+          icon={<Bot className="h-5 w-5" aria-hidden />}
+          title="Bot & Vocero CRM"
+          detail="Conexión ON/OFF, historial de decisiones y alertas"
+        />
+        <QuickAction
+          href="/admin/sucursales"
+          icon={<Store className="h-5 w-5" aria-hidden />}
+          title="Sucursales"
+          detail={`${abiertas} abiertas de ${sucursales.length} independientes`}
         />
         <QuickAction
           href="/admin/catalogo"
           icon={<UtensilsCrossed className="h-5 w-5" aria-hidden />}
           title="Catálogo"
-          detail="Productos, precios y disponibilidad"
+          detail="Productos, precios y disponibilidad por sucursal"
         />
         <QuickAction
           href="/admin/repartidores"
@@ -157,13 +173,19 @@ export function AdminOverview() {
           href="/coordinator"
           icon={<ClipboardList className="h-5 w-5" aria-hidden />}
           title="Despacho"
-          detail="Tablero Kanban del coordinador"
+          detail="Tablero Kanban y recomendación IA de repartidor"
         />
         <QuickAction
           href="/orders"
           icon={<Store className="h-5 w-5" aria-hidden />}
           title="Pedidos"
           detail="Soporte y seguimiento de pedidos"
+        />
+        <QuickAction
+          href="/admin/usuarios"
+          icon={<Users className="h-5 w-5" aria-hidden />}
+          title="Usuarios"
+          detail={`${activos} activos de ${usuarios.length}`}
         />
       </div>
 
@@ -174,7 +196,7 @@ export function AdminOverview() {
               Sucursales
             </h3>
             <Link
-              href="/admin/catalogo"
+              href="/admin/sucursales"
               className="text-xs font-semibold text-primary hover:underline"
             >
               {abiertas} abiertas de {sucursales.length}

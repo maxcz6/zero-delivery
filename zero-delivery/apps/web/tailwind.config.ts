@@ -23,6 +23,12 @@ const config: Config = {
         success: "var(--color-success)",
         warning: "var(--color-warning)",
         yape: "var(--color-yape)",
+        "success-soft": "var(--color-success-soft)",
+        "warning-soft": "var(--color-warning-soft)",
+        "accent-soft": "var(--color-accent-soft)",
+        "info-soft": "var(--color-info-soft)",
+        "yape-soft": "var(--color-yape-soft)",
+        "danger-soft": "var(--color-danger-soft)",
       },
       fontFamily: {
         sans: [
@@ -36,14 +42,15 @@ const config: Config = {
         ],
       },
       boxShadow: {
+        xs: "var(--shadow-sm)",
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         xl: "var(--shadow-xl)",
       },
       borderRadius: {
-        card: "12px",
-        modal: "16px",
+        card: "var(--radius-lg)",
+        modal: "var(--radius-xl)",
       },
     },
   },

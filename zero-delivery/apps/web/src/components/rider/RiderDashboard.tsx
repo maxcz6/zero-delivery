@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   Navigation,
   Package,
   Phone,
+  Radio,
   Store,
 } from "lucide-react";
 import type { EstadoOperativoPedidoDb } from "@zero-delivery/shared-types";
@@ -23,6 +24,31 @@ import { EmptyState, ErrorNote, Modal, PageLoader, Spinner } from "@/components/
 export function RiderDashboard() {
   const queryClient = useQueryClient();
   const [failureFor, setFailureFor] = useState<string | null>(null);
+  const [gpsActive, setGpsActive] = useState(false);
+
+  const locationMutation = useMutation({
+    mutationFn: (coords: { latitud: number; longitud: number; precision_m?: number }) =>
+      api.post("/logistics/riders/location", coords),
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setGpsActive(true);
+        locationMutation.mutate({
+          latitud: pos.coords.latitude,
+          longitud: pos.coords.longitude,
+          precision_m: pos.coords.accuracy,
+        });
+      },
+      (err) => {
+        console.warn("GPS tracking error:", err.message);
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe, staleTime: 5 * 60_000 });
   const riderId = meQuery.data?.riderId;
@@ -104,6 +130,22 @@ export function RiderDashboard() {
           }
         />
       ) : null}
+
+      <div className="flex items-center justify-between rounded-xl bg-card border border-border p-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Bike className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-foreground">Turno de Reparto</p>
+            <p className="text-xs text-muted-foreground">{pedidos.length} {pedidos.length === 1 ? "entrega asignada" : "entregas asignadas"}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          {gpsActive ? "GPS Activo" : "GPS Conectado"}
+        </div>
+      </div>
 
       {pedidos.length === 0 ? (
         <EmptyState
@@ -188,7 +230,7 @@ function DeliveryCard({
             </p>
           </div>
         </div>
-        <p className="text-lg font-bold text-foreground">{money(pedido.total_centavos)}</p>
+        <p className="shrink-0 whitespace-nowrap text-lg font-bold text-foreground">{money(pedido.total_centavos)}</p>
       </header>
 
       {estado === "REPARTIDOR_ASIGNADO" || estado === "REPARTIDOR_EN_RECOJO" ? (
@@ -214,7 +256,7 @@ function DeliveryCard({
         <div className="space-y-3">
           <div className="rounded-xl bg-muted p-3">
             <p className="flex items-start gap-2 text-sm font-semibold text-foreground">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#EA580C]" aria-hidden />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
               <span>
                 {direccion.texto_direccion ?? "Dirección no registrada"}
                 {direccion.referencia ? (
@@ -260,16 +302,30 @@ function DeliveryCard({
           </div>
 
           {cash && cashAmount > 0 ? (
-            <div className="rounded-xl border-2 border-[#059669] bg-[#059669]/10 p-4 text-center">
-              <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#047857]">
+            <div className="rounded-xl border border-success bg-success-soft p-4 text-center">
+              <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-success">
                 <Banknote className="h-4 w-4" aria-hidden />
                 Cobrar en efectivo
               </p>
-              <p className="text-3xl font-bold text-[#047857]">
+              <p className="text-3xl font-bold text-success">
                 {money(pedido.efectivo_por_cobrar_centavos)}
               </p>
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-xl border-2 border-primary bg-primary/10 p-4 text-center">
+              <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
+                YA PAGADO — NO COBRAR
+              </p>
+              <p className="text-sm font-semibold text-foreground mt-1">
+                {pedido.metodo_pago === "YAPE"
+                  ? "Pagado con Yape"
+                  : pedido.metodo_pago === "TRANSFERENCIA_BANCARIA"
+                    ? "Transferencia bancaria validada"
+                    : "Pago confirmado digitalmente"}
+              </p>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -279,7 +335,7 @@ function DeliveryCard({
             type="button"
             onClick={() => onTransition("REPARTIDOR_EN_RECOJO")}
             disabled={busy}
-            className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#EA580C] text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Store className="h-6 w-6" aria-hidden />
             Voy al punto de recojo
@@ -291,7 +347,7 @@ function DeliveryCard({
             type="button"
             onClick={() => onTransition("EN_CAMINO")}
             disabled={busy}
-            className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#EA580C] text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Navigation className="h-6 w-6" aria-hidden />
             Recogido — Iniciar entrega
@@ -303,7 +359,7 @@ function DeliveryCard({
             type="button"
             onClick={onDeliver}
             disabled={busy}
-            className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#EA580C] text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {busy ? <Spinner className="h-5 w-5" /> : <CheckCircle2 className="h-6 w-6" aria-hidden />}
             {cash && cashAmount > 0
@@ -377,3 +433,5 @@ function FailureModal({
     </Modal>
   );
 }
+
+

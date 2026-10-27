@@ -1,3 +1,4 @@
+import { Public } from "../../common/decorators/public.decorator";
 import {
   Controller,
   Get,
@@ -40,6 +41,13 @@ export class OrdersController {
       idempotencyKey
     );
     return { ok: true, data: order };
+  }
+
+  @Public()
+  @Post("public")
+  async createPublicOrder(@Body() body: Parameters<OrdersService["createPublicOrder"]>[0]) {
+    const data = await this.ordersService.createPublicOrder(body);
+    return { ok: true, data };
   }
 
   @Get("active")
@@ -92,5 +100,19 @@ export class OrdersController {
   ) {
     const order = await this.ordersService.registerHandoff(actor, orderId);
     return { ok: true, data: order };
+  }
+
+  @Public()
+  @Get("public/track/:token")
+  async getPublicOrder(@Param("token") token: string) {
+    const data = await this.ordersService.getPublicOrderByToken(token);
+    return { ok: true, data };
+  }
+
+  @Get("stats/overview")
+  @RequirePermission("order.view")
+  async getStatsOverview(@CurrentActor() actor: ActorContext) {
+    const data = await this.ordersService.getStatsOverview(actor);
+    return { ok: true, data };
   }
 }

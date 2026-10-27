@@ -65,12 +65,19 @@ export interface ItemPedido {
 
 export interface Sucursal {
   id: string;
+  restaurante_id?: string;
+  latitud?: number | string | null;
+  longitud?: number | string | null;
   nombre: string;
   slug: string;
   direccion: string;
   telefono: string | null;
   apertura_manual: boolean;
   esta_activo: boolean;
+  razon_social?: string | null;
+  ruc?: string | null;
+  foto_url?: string | null;
+  encargados?: { id: string; nombre_usuario: string; nombre_mostrado: string }[];
 }
 
 export interface Repartidor {
@@ -158,6 +165,7 @@ export interface CategoriaCatalogo {
   id: string;
   restaurante_id: string;
   nombre: string;
+  orden?: number;
 }
 
 export interface ProductoCatalogo {
@@ -171,6 +179,7 @@ export interface ProductoCatalogo {
   precio_base_centavos: string;
   empaque_centavos: string;
   esta_activo: boolean;
+  imagen_url?: string | null;
 }
 
 export interface UsuarioSistema {

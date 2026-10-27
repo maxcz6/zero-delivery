@@ -126,7 +126,7 @@ export function KitchenBoard() {
               }
               disabled={toggleMutation.isPending}
               className={`relative ml-2 h-8 w-14 cursor-pointer rounded-full transition-colors disabled:opacity-50 ${
-                branch.apertura_manual ? "bg-[#059669]" : "bg-border"
+                branch.apertura_manual ? "bg-success" : "bg-border"
               }`}
             >
               <span
@@ -166,7 +166,7 @@ export function KitchenBoard() {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {SECTIONS.map((section) => {
           const sectionOrders = pedidos.filter((p) => section.states.includes(p.estado_operativo));
           return (
@@ -180,9 +180,9 @@ export function KitchenBoard() {
                   {section.key === "aceptar" ? (
                     <PackageCheck className="h-4 w-4 text-primary" aria-hidden />
                   ) : section.key === "preparacion" ? (
-                    <CookingPot className="h-4 w-4 text-[#EA580C]" aria-hidden />
+                    <CookingPot className="h-4 w-4 text-accent" aria-hidden />
                   ) : (
-                    <Handshake className="h-4 w-4 text-[#059669]" aria-hidden />
+                    <Handshake className="h-4 w-4 text-success" aria-hidden />
                   )}
                   {section.title}
                 </h2>
@@ -246,7 +246,7 @@ function KitchenCard({
         </div>
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold ${
-            isLate ? "bg-[#EA580C]/15 text-[#C2410C]" : "bg-muted text-muted-foreground"
+            isLate ? "bg-accent-soft text-accent" : "bg-muted text-muted-foreground"
           }`}
         >
           {isLate ? <AlertTriangle className="h-4 w-4" aria-hidden /> : <Clock className="h-4 w-4" aria-hidden />}
@@ -265,7 +265,7 @@ function KitchenCard({
                 {item.modificadores.map((mod) => (
                   <Badge
                     key={mod.id}
-                    className="border border-[#D97706]/40 bg-[#D97706]/10 text-[#B45309]"
+                    className="border border-warning-soft bg-warning-soft text-warning"
                   >
                     {mod.nombre_snapshot}
                   </Badge>
@@ -318,7 +318,7 @@ function KitchenCard({
           type="button"
           onClick={() => onTransition("LISTO")}
           disabled={busy}
-          className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#EA580C] text-lg font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent text-lg font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           <PackageCheck className="h-6 w-6" aria-hidden />
           Marcar Listo
@@ -329,7 +329,7 @@ function KitchenCard({
         pedido.estado_operativo
       ) ? (
         traspasado ? (
-          <p className="flex items-center justify-center gap-2 rounded-xl bg-[#059669]/10 px-3 py-3 text-sm font-bold text-[#047857]">
+          <p className="flex items-center justify-center gap-2 rounded-xl bg-success-soft px-3 py-3 text-sm font-bold text-success">
             <Handshake className="h-5 w-5" aria-hidden />
             Traspaso registrado a las{" "}
             {new Date(pedido.traspaso_en as string).toLocaleTimeString("es-PE", {
@@ -342,7 +342,7 @@ function KitchenCard({
             type="button"
             onClick={onHandoff}
             disabled={busy}
-            className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#059669] text-lg font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex min-h-[56px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-success text-lg font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {busy ? <Spinner className="h-5 w-5" /> : <Handshake className="h-6 w-6" aria-hidden />}
             Registrar Traspaso Físico
@@ -352,3 +352,4 @@ function KitchenCard({
     </article>
   );
 }
+

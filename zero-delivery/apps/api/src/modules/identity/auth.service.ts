@@ -50,14 +50,12 @@ export class AuthService {
     });
 
     if (!inquilino) {
-      // Mensaje genérico a propósito: no se revela si el inquilino existe.
       throw new UnauthorizedException({
         message: "Credenciales inválidas",
         code: "INVALID_CREDENTIALS",
       });
     }
 
-    // Necesitamos el hash_contrasena explícitamente (tiene select: false)
     const usuario = await this.usuarioRepo
       .createQueryBuilder("u")
       .addSelect("u.hash_contrasena")
@@ -82,7 +80,6 @@ export class AuthService {
       });
     }
 
-    // Comprobar bloqueo por fuerza bruta
     if (usuario.bloqueado_hasta && usuario.bloqueado_hasta > new Date()) {
       const minutosRestantes = Math.ceil(
         (usuario.bloqueado_hasta.getTime() - Date.now()) / 60000
@@ -107,7 +104,6 @@ export class AuthService {
       usuario.intentos_fallidos = nuevosIntentos;
 
       if (nuevosIntentos >= 5) {
-        // Bloqueo estricto de 15 minutos
         usuario.bloqueado_hasta = new Date(Date.now() + 15 * 60 * 1000);
       }
 
@@ -118,16 +114,14 @@ export class AuthService {
       });
     }
 
-    // Reiniciar intentos fallidos y actualizar fecha de ingreso
     usuario.intentos_fallidos = 0;
     usuario.bloqueado_hasta = null;
     usuario.ultimo_acceso_en = new Date();
     await this.usuarioRepo.save(usuario);
 
-    // Generar token de sesión criptográfico (32 bytes = 64 caracteres hex)
     const rawToken = randomBytes(32).toString("hex");
     const hashToken = createHash("sha256").update(rawToken).digest("hex");
-    const expiraEn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
+    const expiraEn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const sesion = this.sesionRepo.create({
       usuario_id: usuario.id,
@@ -187,15 +181,18 @@ export class AuthService {
 
     const tenantId = sesion.usuario.inquilino_id;
 
-    // Obtener alcance de sucursales para Encargados
-    const accesos = await this.accesoSucursalRepo.find({
-      where: {
-        usuario_id: sesion.usuario_id,
-      },
-    });
-    const branchIds = accesos.map((a) => a.sucursal_id);
+    // Obtener alcance de sucursales exclusivamente para Encargados de Sucursal (ENCARGADO_SUCURSAL).
+    // El Administrador, Coordinador y Soporte son roles globales y NO pertenecen a una sucursal específica.
+    let branchIds: string[] = [];
+    if (sesion.usuario.rol === "ENCARGADO_SUCURSAL") {
+      const accesos = await this.accesoSucursalRepo.find({
+        where: {
+          usuario_id: sesion.usuario_id,
+        },
+      });
+      branchIds = accesos.map((a) => a.sucursal_id);
+    }
 
-    // Si es repartidor, obtener su ID de repartidor asociado
     let riderId: string | undefined = undefined;
     if (sesion.usuario.rol === "REPARTIDOR") {
       const rider = await this.repartidorRepo.findOne({

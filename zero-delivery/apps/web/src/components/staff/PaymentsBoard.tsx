@@ -18,9 +18,9 @@ const METODO_LABEL: Record<Pedido["metodo_pago"], string> = {
 };
 
 const METODO_BADGE: Record<Pedido["metodo_pago"], string> = {
-  EFECTIVO: "bg-[#059669] text-white",
-  YAPE: "bg-[#7C3AED] text-white",
-  TRANSFERENCIA_BANCARIA: "bg-[#2563EB] text-white",
+  EFECTIVO: "bg-success text-white",
+  YAPE: "bg-yape text-white",
+  TRANSFERENCIA_BANCARIA: "bg-primary text-white",
 };
 
 type Filtro = "cobros" | "liquidaciones" | "todos";
@@ -202,7 +202,7 @@ export function PaymentsBoard({ compact = false }: { compact?: boolean }) {
                         onClick={() => setModal({ type: "cobro", pedidoId: pedido.id })}
                         className={`min-h-[44px] cursor-pointer rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90 ${
                           pedido.metodo_pago === "YAPE"
-                            ? "bg-[#7C3AED] text-white"
+                            ? "bg-yape text-white"
                             : "bg-primary text-on-primary"
                         }`}
                       >

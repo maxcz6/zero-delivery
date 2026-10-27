@@ -120,7 +120,6 @@ export function KanbanBoard() {
             <input
               id="order-search"
               type="search"
-              inputMode="numeric"
               className="input pl-9"
               placeholder="Ej. 0007 o María"
               value={query}
@@ -135,6 +134,10 @@ export function KanbanBoard() {
         </div>
       </div>
 
+      <p className="text-xs text-muted-foreground 2xl:hidden">
+        Desliza horizontalmente para ver todas las columnas del tablero.
+      </p>
+
       {transitionMutation.isError ? (
         <ErrorNote
           message={
@@ -145,7 +148,7 @@ export function KanbanBoard() {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 2xl:grid 2xl:grid-cols-5 2xl:overflow-visible">
         {KANBAN_COLUMNS.map((column) => {
           const columnOrders = filtered.filter((p) =>
             column.states.includes(p.estado_operativo)
@@ -154,7 +157,7 @@ export function KanbanBoard() {
             <section
               key={column.key}
               aria-label={column.title}
-              className="flex min-w-0 flex-col rounded-card bg-muted/60 p-2"
+              className="flex w-[280px] shrink-0 flex-col rounded-card bg-muted/60 p-2 2xl:w-auto"
               onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";

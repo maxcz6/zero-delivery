@@ -78,15 +78,13 @@ export const KANBAN_COLUMNS: KanbanColumnDef[] = [
     alertMinutes: null,
   },
   {
-    key: "entregados",
-    title: "Entregados / Cerrados",
-    states: ["ENTREGADO", "DEVUELTO_A_RESTAURANTE", "CANCELADO", "RECHAZADO"],
-    alertMinutes: null,
-  },
-  {
-    key: "incidencias",
-    title: "Incidencias / Fallidos",
+    key: "cerrados",
+    title: "Cerrados e incidencias",
     states: [
+      "ENTREGADO",
+      "DEVUELTO_A_RESTAURANTE",
+      "CANCELADO",
+      "RECHAZADO",
       "ENTREGA_FALLIDA",
       "DEVOLUCION_PENDIENTE",
       "PENDIENTE_RESOLUCION",

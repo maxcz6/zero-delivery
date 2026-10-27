@@ -2,21 +2,30 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { Bike, CreditCard, Search } from "lucide-react";
 import { api, ApiError, money } from "@/lib/api";
 import type { ApiResponse, Pedido } from "@/lib/types";
 import { elapsedMinutes, ESTADO_LABEL, formatElapsed, orderNumber } from "@/lib/orders";
 import { useNow } from "@/lib/useNow";
 import { Badge, EmptyState, ErrorNote, Modal, PageLoader, Spinner } from "@/components/ui";
+import { AssignRiderModal } from "@/components/coordinator/AssignRiderModal";
+
+const ASSIGNABLE: Array<Pedido["estado_operativo"]> = [
+  "CONFIRMADO",
+  "EN_PREPARACION",
+  "LISTO",
+  "REPARTIDOR_ASIGNADO",
+];
 
 const ESTADO_BADGE: Partial<Record<Pedido["estado_operativo"], string>> = {
-  NUEVO: "bg-[#2563EB] text-white",
-  CONFIRMADO: "bg-[#2563EB]/10 text-[#1D4ED8]",
-  EN_PREPARACION: "bg-[#D97706]/15 text-[#B45309]",
-  LISTO: "bg-[#059669]/10 text-[#047857]",
-  REPARTIDOR_ASIGNADO: "bg-[#059669]/10 text-[#047857]",
-  REPARTIDOR_EN_RECOJO: "bg-[#EA580C]/15 text-[#C2410C]",
-  EN_CAMINO: "bg-[#EA580C]/15 text-[#C2410C]",
+  NUEVO: "bg-primary text-white",
+  CONFIRMADO: "bg-info-soft text-primary",
+  EN_PREPARACION: "bg-warning-soft text-warning",
+  LISTO: "bg-success-soft text-success",
+  REPARTIDOR_ASIGNADO: "bg-success-soft text-success",
+  REPARTIDOR_EN_RECOJO: "bg-accent-soft text-accent",
+  EN_CAMINO: "bg-accent-soft text-accent",
   CANCELACION_SOLICITADA: "bg-destructive/10 text-destructive",
   ENTREGA_FALLIDA: "bg-destructive text-white",
   PENDIENTE_RESOLUCION: "bg-destructive/10 text-destructive",
@@ -34,6 +43,7 @@ export function SupportOrders() {
   const now = useNow();
   const [query, setQuery] = useState("");
   const [cancelFor, setCancelFor] = useState<Pedido | null>(null);
+  const [assignFor, setAssignFor] = useState<string | null>(null);
 
   const ordersQuery = useQuery({
     queryKey: ["orders", "active", "support"],
@@ -79,6 +89,47 @@ export function SupportOrders() {
     );
   }
 
+  const cancelableStates = new Set([
+    "CANCELACION_SOLICITADA",
+    "ENTREGADO",
+    "CANCELADO",
+    "RECHAZADO",
+    "ENTREGA_FALLIDA",
+    "DEVOLUCION_PENDIENTE",
+    "DEVUELTO_A_RESTAURANTE",
+    "PENDIENTE_RESOLUCION",
+  ]);
+
+  const renderActions = (pedido: Pedido) => (
+    <div className="flex flex-wrap gap-2">
+      {pedido.metodo_pago !== "EFECTIVO" && pedido.estado_pago !== "PAGADO" ? (
+        <Link href="/orders/pagos" className="btn-secondary btn-sm text-yape">
+          <CreditCard className="h-3.5 w-3.5" aria-hidden />
+          Validar pago
+        </Link>
+      ) : null}
+      {ASSIGNABLE.includes(pedido.estado_operativo) ? (
+        <button
+          type="button"
+          onClick={() => setAssignFor(pedido.id)}
+          className="btn-primary btn-sm"
+        >
+          <Bike className="h-3.5 w-3.5" aria-hidden />
+          {pedido.repartidor_id ? "Reasignar" : "Asignar repartidor"}
+        </button>
+      ) : null}
+      {!cancelableStates.has(pedido.estado_operativo) ? (
+        <button
+          type="button"
+          onClick={() => setCancelFor(pedido)}
+          className="btn-ghost btn-sm text-destructive"
+        >
+          Solicitar cancelación
+        </button>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="max-w-md">
@@ -94,17 +145,21 @@ export function SupportOrders() {
             id="support-search"
             type="search"
             className="input pl-9"
-            placeholder="Ej. 0007, María o +51…"
+            placeholder="Ej. #0007, María o +51 987…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Acepta número de pedido, nombre del cliente o teléfono.
+        </p>
       </div>
 
       {pedidos.length === 0 ? (
         <EmptyState title="Sin pedidos que coincidan" />
       ) : (
-        <div className="card overflow-x-auto">
+        <>
+        <div className="card hidden overflow-x-auto md:block">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
@@ -122,16 +177,6 @@ export function SupportOrders() {
               {pedidos.map((pedido) => {
                 const badge = ESTADO_BADGE[pedido.estado_operativo] ?? "bg-muted text-muted-foreground";
                 const minutes = elapsedMinutes(pedido.creado_en, now);
-                const cancelable = ![
-                  "CANCELACION_SOLICITADA",
-                  "ENTREGADO",
-                  "CANCELADO",
-                  "RECHAZADO",
-                  "ENTREGA_FALLIDA",
-                  "DEVOLUCION_PENDIENTE",
-                  "DEVUELTO_A_RESTAURANTE",
-                  "PENDIENTE_RESOLUCION",
-                ].includes(pedido.estado_operativo);
                 return (
                   <tr
                     key={pedido.id}
@@ -157,22 +202,14 @@ export function SupportOrders() {
                     <td className="px-4 py-3 text-muted-foreground">
                       {METODO_LABEL[pedido.metodo_pago]} · {pedido.estado_pago}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-foreground">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-foreground">
                       {money(pedido.total_centavos)}
                     </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
                       {formatElapsed(minutes)}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {cancelable ? (
-                        <button
-                          type="button"
-                          onClick={() => setCancelFor(pedido)}
-                          className="min-h-[36px] cursor-pointer rounded-lg border border-destructive/40 px-3 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/5"
-                        >
-                          Solicitar cancelación
-                        </button>
-                      ) : null}
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end">{renderActions(pedido)}</div>
                     </td>
                   </tr>
                 );
@@ -180,7 +217,53 @@ export function SupportOrders() {
             </tbody>
           </table>
         </div>
+
+        <div className="space-y-3 md:hidden">
+          {pedidos.map((pedido) => {
+            const badge = ESTADO_BADGE[pedido.estado_operativo] ?? "badge-neutral";
+            const minutes = elapsedMinutes(pedido.creado_en, now);
+            return (
+              <article key={pedido.id} className="card space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">{orderNumber(pedido)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {pedido.cliente?.nombre ?? "—"} · {pedido.cliente?.telefono_e164 ?? ""}
+                    </p>
+                  </div>
+                  <Badge className={badge}>{ESTADO_LABEL[pedido.estado_operativo]}</Badge>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Sucursal</dt>
+                    <dd className="font-medium text-foreground">{pedido.sucursal?.nombre ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Pago</dt>
+                    <dd className="font-medium text-foreground">
+                      {METODO_LABEL[pedido.metodo_pago]} · {pedido.estado_pago}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Total</dt>
+                    <dd className="font-semibold text-foreground">{money(pedido.total_centavos)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Tiempo</dt>
+                    <dd className="font-medium text-foreground">{formatElapsed(minutes)}</dd>
+                  </div>
+                </dl>
+
+                {renderActions(pedido)}
+              </article>
+            );
+          })}
+        </div>
+        </>
       )}
+
+      {assignFor ? <AssignRiderModal pedidoId={assignFor} onClose={() => setAssignFor(null)} /> : null}
 
       {cancelFor ? (
         <CancelModal

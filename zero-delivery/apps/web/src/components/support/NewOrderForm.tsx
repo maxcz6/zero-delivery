@@ -334,7 +334,7 @@ export function NewOrderForm() {
           <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
             <input
               type="checkbox"
-              className="h-5 w-5 cursor-pointer accent-[#2563EB]"
+              className="h-5 w-5 cursor-pointer accent-primary"
               checked={factura}
               onChange={(e) => setFactura(e.target.checked)}
             />

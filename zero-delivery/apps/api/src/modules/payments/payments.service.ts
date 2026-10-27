@@ -12,6 +12,7 @@ import {
   EventoSalidaEntity,
 } from "@zero-delivery/database";
 import { ActorContext, EstadoPagoDb, MetodoPagoDb } from "@zero-delivery/shared-types";
+import { ensureRestaurantPayout } from "./restaurant-payout";
 
 @Injectable()
 export class PaymentsService {
@@ -325,15 +326,20 @@ export class PaymentsService {
   }
 
   /**
-   * Obtiene la liquidación al restaurante de un pedido (si existe).
+   * Obtiene la liquidación al restaurante de un pedido, materializándola si aún no
+   * existe (pedidos aceptados antes de que el flujo la creara).
    */
   async getRestaurantPaymentByOrder(
     actor: ActorContext,
     orderId: string
   ): Promise<PagoRestauranteEntity | null> {
-    const pagoRestRepo = this.dataSource.getRepository(PagoRestauranteEntity);
-    return pagoRestRepo.findOne({
-      where: { pedido_id: orderId, inquilino_id: actor.tenantId },
+    const pedidoRepo = this.dataSource.getRepository(PedidoEntity);
+    const pedido = await pedidoRepo.findOne({
+      where: { id: orderId, inquilino_id: actor.tenantId },
     });
+    if (!pedido) {
+      return null;
+    }
+    return ensureRestaurantPayout(this.dataSource.manager, pedido);
   }
 }

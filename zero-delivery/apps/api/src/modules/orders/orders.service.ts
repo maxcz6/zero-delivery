@@ -21,6 +21,7 @@ import {
   ProductoGrupoModificadoresEntity,
   ConfiguracionEntity,
   PagoEntity,
+  RepartidorEntity,
 } from "@zero-delivery/database";
 import {
   ActorContext,
@@ -30,6 +31,7 @@ import {
   can,
 } from "@zero-delivery/shared-types";
 import { evaluateReleaseGate } from "./release-gate";
+import { ensureRestaurantPayout } from "../payments/restaurant-payout";
 import {
   ALLOWED_TRANSITIONS,
   STATES_REQUIRING_MOTIVO,
@@ -443,6 +445,12 @@ export class OrdersService {
         pedido.estado_previo_solicitud_cancelacion = estadoActual;
       }
 
+      // Al aceptar el pedido nace su liquidación al restaurante, de modo que pueda
+      // confirmarse antes del despacho y no al final del flujo.
+      if (nuevoEstado === "CONFIRMADO") {
+        await ensureRestaurantPayout(queryRunner.manager, pedido);
+      }
+
       pedido.estado_operativo = nuevoEstado;
 
       const pedidoActualizado = await pedidoRepo.save(pedido);
@@ -489,22 +497,54 @@ export class OrdersService {
    * Registro del traspaso físico del pedido de la cocina al repartidor.
    */
   async registerHandoff(actor: ActorContext, orderId: string): Promise<PedidoEntity> {
-    const pedidoRepo = this.dataSource.getRepository(PedidoEntity);
-    const pedido = await pedidoRepo.findOne({
-      where: { id: orderId, inquilino_id: actor.tenantId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!pedido) {
-      throw new NotFoundException("Pedido no encontrado");
+    try {
+      const pedidoRepo = queryRunner.manager.getRepository(PedidoEntity);
+      const pedido = await pedidoRepo
+        .createQueryBuilder("p")
+        .setLock("pessimistic_write")
+        .where("p.id = :orderId AND p.inquilino_id = :tenantId", {
+          orderId,
+          tenantId: actor.tenantId,
+        })
+        .getOne();
+
+      if (!pedido) {
+        throw new NotFoundException("Pedido no encontrado");
+      }
+
+      this.assertOrderPermission(actor, "order.handoff_to_rider", pedido);
+
+      // Mismo criterio que pedidos_traspaso_requiere_pago_chk y
+      // pedidos_control_despacho_chk, validado aquí para responder 400 con un
+      // mensaje de negocio en lugar del 500 que provoca la restricción en BD.
+      if (!pedido.repartidor_id) {
+        throw new BadRequestException(
+          "No se puede registrar el traspaso: el pedido aún no tiene repartidor asignado"
+        );
+      }
+      if (pedido.estado_pago_restaurante !== "CONFIRMADO") {
+        throw new BadRequestException(
+          "No se puede registrar el traspaso: el pago al restaurante aún no está confirmado"
+        );
+      }
+
+      pedido.traspaso_en = new Date();
+      pedido.traspaso_por = actor.userId;
+      await pedidoRepo.save(pedido);
+
+      await queryRunner.commitTransaction();
+
+      return (await this.getOrderById(actor, orderId))!;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-
-    this.assertOrderPermission(actor, "order.handoff_to_rider", pedido);
-
-    pedido.traspaso_en = new Date();
-    pedido.traspaso_por = actor.userId;
-    await pedidoRepo.save(pedido);
-
-    return (await this.getOrderById(actor, orderId))!;
   }
 
   private assertOrderPermission(
@@ -614,5 +654,202 @@ export class OrdersService {
     }
 
     return query.orderBy("p.creado_en", "ASC").getMany();
+  }
+
+  /**
+   * Obtiene la información pública de un pedido por su token_publico (sin auth).
+   */
+  async getPublicOrderByToken(token: string) {
+    const orderRepo = this.dataSource.getRepository(PedidoEntity);
+    const order = await orderRepo.findOne({
+      where: { token_publico: token },
+      relations: ["sucursal", "items", "repartidor"],
+    });
+
+    if (!order) {
+      throw new NotFoundException("Pedido no encontrado con el código provisto");
+    }
+
+    return {
+      id: order.id,
+      numero: order.numero,
+      token_publico: order.token_publico,
+      estado_operativo: order.estado_operativo,
+      estado_pago: order.estado_pago,
+      metodo_pago: order.metodo_pago,
+      direccion_snapshot: order.direccion_snapshot,
+      total_centavos: order.total_centavos,
+      subtotal_items_centavos: order.subtotal_items_centavos,
+      tarifa_entrega_centavos: order.tarifa_entrega_centavos,
+      creado_en: order.creado_en,
+      sucursal: order.sucursal
+        ? {
+            nombre: order.sucursal.nombre,
+            direccion: order.sucursal.direccion,
+            telefono: order.sucursal.telefono,
+          }
+        : null,
+      repartidor: order.repartidor
+        ? {
+            nombre_completo: order.repartidor.nombre_completo,
+            tipo_vehiculo: order.repartidor.tipo_vehiculo,
+          }
+        : null,
+      items: (order.items ?? []).map((i) => ({
+        id: i.id,
+        nombre_snapshot: i.nombre_snapshot,
+        cantidad: i.cantidad,
+        precio_unitario_centavos: i.precio_unitario_centavos,
+        total_linea_centavos: i.total_linea_centavos,
+      })),
+    };
+  }
+
+  /**
+   * Obtiene las métricas y KPIs operacionales del inquilino.
+   */
+  async getStatsOverview(actor: ActorContext) {
+    const orderRepo = this.dataSource.getRepository(PedidoEntity);
+    const riderRepo = this.dataSource.getRepository(RepartidorEntity);
+
+    const orders = await orderRepo.find({
+      where: { inquilino_id: actor.tenantId },
+    });
+
+    const activeOrders = orders.filter(
+      (o) =>
+        ![
+          "ENTREGADO",
+          "CANCELADO",
+          "RECHAZADO",
+          "DEVUELTO_A_RESTAURANTE",
+        ].includes(o.estado_operativo)
+    );
+    const deliveredOrders = orders.filter(
+      (o) => o.estado_operativo === "ENTREGADO"
+    );
+
+    const totalSalesCents = orders
+      .filter(
+        (o) => o.estado_pago === "PAGADO" || o.estado_operativo === "ENTREGADO"
+      )
+      .reduce((acc, o) => acc + Number(o.total_centavos || 0), 0);
+
+    const activeRidersCount = await riderRepo.count({
+      where: {
+        inquilino_id: actor.tenantId,
+        estado: In(["DISPONIBLE", "OCUPADO", "EN_CAMINO"]),
+      },
+    });
+
+    const cashOrdersCount = orders.filter(
+      (o) => o.metodo_pago === "EFECTIVO"
+    ).length;
+    const yapeOrdersCount = orders.filter((o) => o.metodo_pago === "YAPE").length;
+
+    return {
+      activeOrdersCount: activeOrders.length,
+      deliveredOrdersCount: deliveredOrders.length,
+      totalOrdersCount: orders.length,
+      totalSalesCents,
+      totalSalesSoles: totalSalesCents / 100,
+      activeRidersCount,
+      cashOrdersCount,
+      yapeOrdersCount,
+    };
+  }
+
+  /**
+   * Pedido creado por el cliente desde la carta pública (sin login).
+   * El pedido nace en NUEVO y aparece en el tablero del Coordinador / Soporte.
+   * Cada sucursal es independiente: solo se aceptan platos de la carta de esa sucursal.
+   */
+  async createPublicOrder(input: {
+    sucursal_slug: string;
+    cliente: { nombre: string; telefono: string };
+    direccion: { texto: string; referencia?: string | null; latitud?: number | null; longitud?: number | null };
+    metodo_pago: "EFECTIVO" | "YAPE" | "TRANSFERENCIA_BANCARIA";
+    notas?: string | null;
+    items: Array<{ producto_id: string; cantidad: number }>;
+  }): Promise<{ numero: string; token_publico: string; total_centavos: string }> {
+    const sucursalRepo = this.dataSource.getRepository(SucursalEntity);
+    const productoRepo = this.dataSource.getRepository(ProductoEntity);
+
+    const sucursal = await sucursalRepo.findOne({
+      where: { slug: input.sucursal_slug, esta_activo: true },
+    });
+    if (!sucursal) throw new NotFoundException("Sucursal no encontrada");
+    if (!sucursal.apertura_manual) {
+      throw new BadRequestException("La sucursal está cerrada en este momento");
+    }
+
+    const nombre = input.cliente?.nombre?.trim() ?? "";
+    const telefono = (input.cliente?.telefono ?? "").replace(/[\s-]/g, "");
+    const telE164 = telefono.startsWith("+") ? telefono : `+51${telefono}`;
+    if (nombre.length < 2) throw new BadRequestException("Indica tu nombre");
+    if (!/^\+[1-9]\d{7,14}$/.test(telE164)) throw new BadRequestException("Teléfono inválido");
+    if (!input.direccion?.texto || input.direccion.texto.trim().length < 3) {
+      throw new BadRequestException("Indica la dirección de entrega");
+    }
+    if (!["EFECTIVO", "YAPE", "TRANSFERENCIA_BANCARIA"].includes(input.metodo_pago)) {
+      throw new BadRequestException("Método de pago inválido");
+    }
+    if (!Array.isArray(input.items) || input.items.length === 0 || input.items.length > 50) {
+      throw new BadRequestException("El pedido debe tener entre 1 y 50 platos");
+    }
+    for (const it of input.items) {
+      if (!Number.isInteger(it.cantidad) || it.cantidad < 1 || it.cantidad > 50) {
+        throw new BadRequestException("Cantidad inválida");
+      }
+    }
+
+    // Independencia por sucursal: todos los platos deben pertenecer a su carta.
+    const ids = [...new Set(input.items.map((i) => i.producto_id))];
+    const validos = await productoRepo.find({
+      where: {
+        id: In(ids),
+        inquilino_id: sucursal.inquilino_id,
+        restaurante_id: sucursal.restaurante_id,
+        esta_activo: true,
+      },
+    });
+    if (validos.length !== ids.length) {
+      throw new BadRequestException("Algún plato no pertenece a esta sucursal o no está disponible");
+    }
+
+    const actor = {
+      tenantId: sucursal.inquilino_id,
+      userId: null,
+      role: "SUPPORT_AGENT",
+      branchIds: [],
+      requestId: randomBytes(8).toString("hex"),
+    } as unknown as ActorContext;
+
+    const pedido = await this.createManualOrder(actor, {
+      sucursal_id: sucursal.id,
+      cliente_nuevo: { nombre, telefono_e164: telE164 },
+      direccion_snapshot: {
+        texto_direccion: input.direccion.texto.trim(),
+        referencia: input.direccion.referencia ?? null,
+        latitud: input.direccion.latitud ?? null,
+        longitud: input.direccion.longitud ?? null,
+      },
+      canal: "WEB",
+      metodo_pago: input.metodo_pago,
+      efectivo_por_cobrar_centavos: 0,
+      factura_solicitada: false,
+      notas: input.notas ?? null,
+      items: input.items.map((i) => ({
+        producto_id: i.producto_id,
+        cantidad: i.cantidad,
+        modificadores: [],
+      })),
+    } as CrearPedidoManualInput);
+
+    return {
+      numero: String(pedido.numero),
+      token_publico: pedido.token_publico,
+      total_centavos: String(pedido.total_centavos),
+    };
   }
 }

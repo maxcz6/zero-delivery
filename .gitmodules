@@ -1,0 +1,3 @@
+[submodule "vocero-crm"]
+	path = vocero-crm
+	url = https://github.com/kevinrivm/vocero-crm

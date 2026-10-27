@@ -44,7 +44,7 @@ export class AuthController {
     // Establecer cookie HttpOnly zd_session
     res.cookie("zd_session", result.rawToken, {
       httpOnly: true,
-      secure: process.env["NODE_ENV"] === "production",
+      secure: process.env["COOKIE_SECURE"] === "true",
       sameSite: "lax",
       path: "/",
       expires: result.expiraEn,

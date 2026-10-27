@@ -38,6 +38,16 @@ export class LogisticsController {
     return { ok: true, data: wallet };
   }
 
+  @Get("orders/:orderId/recommendations")
+  @RequirePermission("order.assign_rider")
+  async getRecommendations(
+    @CurrentActor() actor: ActorContext,
+    @Param("orderId") orderId: string
+  ) {
+    const data = await this.logisticsService.getAssignmentRecommendations(actor, orderId);
+    return { ok: true, data };
+  }
+
   @Post("orders/:orderId/assign-rider")
   @RequirePermission("order.assign_rider")
   async assignRider(
@@ -104,5 +114,20 @@ export class LogisticsController {
       body.motivo_ajuste
     );
     return { ok: true, data: liq };
+  }
+
+  @Post("riders/location")
+  @RequirePermission("delivery.update_own")
+  async updateLocation(
+    @CurrentActor() actor: ActorContext,
+    @Body() body: { latitud: number; longitud: number; precision_m?: number }
+  ) {
+    const data = await this.logisticsService.recordLocation(
+      actor,
+      body.latitud,
+      body.longitud,
+      body.precision_m
+    );
+    return { ok: true, data };
   }
 }
